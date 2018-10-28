@@ -47,6 +47,21 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     } else if ([@"resize" isEqualToString:call.method]) {
         [self resize:call];
         result(nil);
+    } else if ([@"back" isEqualToString:call.method]) {
+        if ([_webview goBack]) {
+            result([NSNumber numberWithBool:YES]);
+        } else {
+            result([NSNumber numberWithBool:NO]);
+        }
+    } else if ([@"forward" isEqualToString:call.method]) {
+        if ([self.webview goForward]) {
+            result([NSNumber numberWithBool:YES]);
+        } else {
+            result([NSNumber numberWithBool:NO]);
+        }
+    } else if ([@"reload" isEqualToString:call.method]) {
+        [self.webview reload];
+        result(nil);
     } else if ([@"reloadUrl" isEqualToString:call.method]) {
         [self reloadUrl:call];
         result(nil);	
@@ -223,6 +238,8 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
 
     id data = @{@"url": navigationAction.request.URL.absoluteString,
                 @"type": @"shouldStart",
+                @"canGoBack": [NSNumber numberWithBool:_webview.canGoBack],
+                @"canGoForward": [NSNumber numberWithBool:_webview.canGoForward],
                 @"navigationType": [NSNumber numberWithInt:navigationAction.navigationType]};
     [channel invokeMethod:@"onState" arguments:data];
 
@@ -245,24 +262,34 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
 
 
 - (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
-    [channel invokeMethod:@"onState" arguments:@{@"type": @"startLoad", @"url": webView.URL.absoluteString}];
+    [channel invokeMethod:@"onState" arguments:
+     @{
+       @"type": @"startLoad",
+       @"url": webView.URL.absoluteString,
+       @"canGoBack": [NSNumber numberWithBool:_webview.canGoBack],
+       @"canGoForward": [NSNumber numberWithBool:_webview.canGoForward],
+       }
+     ];
     if ([self.navigationDelegate respondsToSelector:@selector(webView:didStartProvisionalNavigation:)]) {
         [self.navigationDelegate webView:webView didStartProvisionalNavigation:navigation];
     }
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    [channel invokeMethod:@"onState" arguments:@{@"type": @"finishLoad", @"url": webView.URL.absoluteString}];
+    [channel invokeMethod:@"onState" arguments:
+     @{
+       @"type": @"finishLoad",
+       @"url": webView.URL.absoluteString,
+       @"canGoBack": [NSNumber numberWithBool:_webview.canGoBack],
+       @"canGoForward": [NSNumber numberWithBool:_webview.canGoForward],
+       }];
     if ([self.navigationDelegate respondsToSelector:@selector(webView:didFinishNavigation:)]) {
         [self.navigationDelegate webView:webView didFinishNavigation:navigation];
     }
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    id data = [FlutterError errorWithCode:[NSString stringWithFormat:@"%ld", error.code]
-                                  message:error.localizedDescription
-                                  details:error.localizedFailureReason];
-    [channel invokeMethod:@"onError" arguments:data];
+    NSLog(@"didFailNavigation %@", error);
     if ([self.navigationDelegate respondsToSelector:@selector(webView:didFailNavigation:withError:)]) {
         [self.navigationDelegate webView:webView didFailNavigation:navigation withError:error];
     }

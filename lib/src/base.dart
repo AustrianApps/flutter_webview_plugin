@@ -226,8 +226,10 @@ class WebViewStateChanged {
   final WebViewState type;
   final String url;
   final int navigationType;
+  final bool canGoBack;
+  final bool canGoForward;
 
-  WebViewStateChanged(this.type, this.url, this.navigationType);
+  WebViewStateChanged(this.type, this.url, this.navigationType, this.canGoBack, this.canGoForward);
 
   factory WebViewStateChanged.fromMap(Map<String, dynamic> map) {
     WebViewState t;
@@ -242,7 +244,7 @@ class WebViewStateChanged {
         t = WebViewState.finishLoad;
         break;
     }
-    return new WebViewStateChanged(t, map['url'], map['navigationType']);
+    return new WebViewStateChanged(t, map['url'], map['navigationType'], map['canGoBack'], map['canGoForward']);
   }
 }
 

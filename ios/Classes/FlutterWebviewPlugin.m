@@ -14,10 +14,10 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     channel = [FlutterMethodChannel
                methodChannelWithName:CHANNEL_NAME
                binaryMessenger:[registrar messenger]];
-    
-    UIViewController *viewController = (UIViewController *)registrar.messenger;
+
+    UIViewController *viewController = [UIApplication sharedApplication].delegate.window.rootViewController;
     FlutterWebviewPlugin* instance = [[FlutterWebviewPlugin alloc] initWithViewController:viewController];
-    
+
     [registrar addMethodCallDelegate:instance channel:channel];
     [registrar publish:instance];
 }
@@ -64,7 +64,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         result(nil);
     } else if ([@"reloadUrl" isEqualToString:call.method]) {
         [self reloadUrl:call];
-        result(nil);	
+        result(nil);
     } else if ([@"show" isEqualToString:call.method]) {
         [self show];
         result(nil);
@@ -73,6 +73,17 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         result(nil);
     } else if ([@"stopLoading" isEqualToString:call.method]) {
         [self stopLoading];
+        result(nil);
+    } else if ([@"cleanCookies" isEqualToString:call.method]) {
+        [self cleanCookies];
+    } else if ([@"back" isEqualToString:call.method]) {
+        [self back];
+        result(nil);
+    } else if ([@"forward" isEqualToString:call.method]) {
+        [self forward];
+        result(nil);
+    } else if ([@"reload" isEqualToString:call.method]) {
+        [self reload];
         result(nil);
     } else {
         result(FlutterMethodNotImplemented);
@@ -93,24 +104,23 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     if (clearCache != (id)[NSNull null] && [clearCache boolValue]) {
         [[NSURLCache sharedURLCache] removeAllCachedResponses];
     }
-    
+
     if (clearCookies != (id)[NSNull null] && [clearCookies boolValue]) {
         [[NSURLSession sharedSession] resetWithCompletionHandler:^{
         }];
     }
-    
+
     if (userAgent != (id)[NSNull null]) {
         [[NSUserDefaults standardUserDefaults] registerDefaults:@{@"UserAgent": userAgent}];
     }
-    
-    
+
     CGRect rc;
-    if (rect != nil) {
+    if (rect != (id)[NSNull null]) {
         rc = [self parseRect:rect];
     } else {
         rc = self.viewController.view.bounds;
     }
-    
+
     self.webview = [[WKWebView alloc] initWithFrame:rc];
     self.webview.navigationDelegate = self;
     self.webview.scrollView.delegate = self;
@@ -126,8 +136,6 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
             self.webview.customUserAgent = userAgent;
         }
     }
-
-
 
     _enableZoom = [withZoom boolValue];
 
@@ -165,11 +173,11 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
             } else {
                 NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
                 NSDictionary *headers = call.arguments[@"headers"];
-                
+
                 if (headers != nil) {
                     [request setAllHTTPHeaderFields:headers];
                 }
-                
+
                 [self.webview loadRequest:request];
             }
         }
@@ -230,6 +238,26 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     if (self.webview != nil) {
         [self.webview stopLoading];
     }
+}
+- (void)back {
+    if (self.webview != nil) {
+        [self.webview goBack];
+    }
+}
+- (void)forward {
+    if (self.webview != nil) {
+        [self.webview goForward];
+    }
+}
+- (void)reload {
+    if (self.webview != nil) {
+        [self.webview reload];
+    }
+}
+
+- (void)cleanCookies {
+    [[NSURLSession sharedSession] resetWithCompletionHandler:^{
+        }];
 }
 
 #pragma mark -- WkWebView Delegate
@@ -293,6 +321,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     if ([self.navigationDelegate respondsToSelector:@selector(webView:didFailNavigation:withError:)]) {
         [self.navigationDelegate webView:webView didFailNavigation:navigation withError:error];
     }
+    [channel invokeMethod:@"onError" arguments:@{@"code": [NSString stringWithFormat:@"%ld", error.code], @"error": error.localizedDescription}];
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
